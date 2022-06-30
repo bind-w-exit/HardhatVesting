@@ -8,6 +8,13 @@ interface IVestingContract {
         Private
     }
 
+    struct Investor {
+        uint256 amount; 
+        uint256 initialAmount;   
+        uint256 withdrawnAmount;
+        AllocationType allocationType;
+    }
+
     event SetInitialTimestamp(uint256 initialTimestamp);
     event AddInvestor(address indexed investor, uint256 amount, AllocationType allocationType);
     event WithdrawTokens(address indexed investor, uint256 amount);

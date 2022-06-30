@@ -92,7 +92,7 @@ describe("Vesting Contract", function () {
             it("shouldn't mint tokens by not the current owner", async () => {
                 await expectRevert(
                     tevaToken.connect(user1).mint(owner.address, AMOUNT),
-                    "Ownable: caller is not the owner"
+                    "TevaToken: Caller is not a minter"
                 );
             });
 
@@ -107,6 +107,14 @@ describe("Vesting Contract", function () {
                     owner.address,
                     constants.ZERO_ADDRESS,        
                     AMOUNT
+                );
+            });
+
+            it("shouldn't burn tokens by not the current owner", async () => {
+                await tevaToken.mint(owner.address, AMOUNT);
+                await expectRevert(
+                    tevaToken.connect(user1).burn(AMOUNT),
+                    "TevaToken: Caller is not a burner"
                 );
             });
 

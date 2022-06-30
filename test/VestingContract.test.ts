@@ -42,7 +42,7 @@ describe("Vesting Contract", function () {
     tevaToken = await TevaToken.deploy();
     vestingContract = await VestingContract.deploy(tevaToken.address);
 
-    await tevaToken.transferOwnership(vestingContract.address);
+    await tevaToken.addMinter(vestingContract.address);
     
     snapshotA = await snapshot();
   });
@@ -254,18 +254,7 @@ describe("Vesting Contract", function () {
       it("shouldn't withdraw tokens to investor if timestamp not initialized", async () => {
         await expectRevert(
           vestingContract.connect(user1).withdrawTokens(),
-          "Vesting: timestamp not initialized"
-        );
-      });
-
-      it("shouldn't withdraw tokens to investor if timestamp not initialized", async () => {
-        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
-        await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increase(10);
-
-        await expectRevert(
-          vestingContract.connect(user1).withdrawTokens(),
-          "Vesting: cliff time is not over"
+          "Vesting: not initialized"
         );
       });
 

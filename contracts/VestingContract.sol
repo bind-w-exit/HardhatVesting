@@ -10,20 +10,14 @@ import "./TevaToken.sol";
 contract VestingContract is IVestingContract, Ownable {
     using SafeERC20 for IERC20;  
 
-    struct Investor {
-        uint256 amount;    
-        uint256 withdrawnAmount;
-        AllocationType allocationType;
-    }
-
     uint256 private constant VESTING_TIME = 600 minutes;
     uint256 private constant CLIFF_TIME = 10 minutes;
 
-    mapping(address => Investor) public investorsBalances;
+    mapping(address => Investor) public investorsInfo;
     
     uint256 public initialTimestamp;
     uint256 public totalSupply;
-    address public token;
+    address public immutable token;
     bool public timestampInitialized;
     
     /**
@@ -67,15 +61,14 @@ contract VestingContract is IVestingContract, Ownable {
         require(!timestampInitialized, "Vesting: vesting has already been started");
         require(_investors.length == _amounts.length, "Vesting: the number of items in the arrays does't match");
         
-        uint256 amountsSum;
-        for (uint256 i = 0; i < _investors.length; i++) {
-            amountsSum += _amounts[i];
-            investorsBalances[_investors[i]] = Investor(_amounts[i], 0, _allocationType);
-            emit AddInvestor(_investors[i], _amounts[i], _allocationType);
+        uint256 totalAmount;
+        for (uint256 i = 0; i < _investors.length; i++) { 
+            _addInvestor(_investors[i], _amounts[i], _allocationType);           
+            totalAmount += _amounts[i];      
         }
 
-        totalSupply += amountsSum;
-        TevaToken(token).mint(address(this), amountsSum);
+        totalSupply += totalAmount;
+        TevaToken(token).mint(address(this), totalAmount);
     }
 
     /**
@@ -85,33 +78,20 @@ contract VestingContract is IVestingContract, Ownable {
      * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
      */
     function withdrawTokens() external {
-        Investor memory investor = investorsBalances[msg.sender];
+        Investor storage investor = investorsInfo[msg.sender];
 
-        require(timestampInitialized, "Vesting: timestamp not initialized");
-        require(initialTimestamp + CLIFF_TIME <= block.timestamp, "Vesting: cliff time is not over");
+        require(timestampInitialized, "Vesting: not initialized");
         require(investor.amount > 0, "Vesting: you are not a investor");
 
-        uint256 avaiableBalance;  
-        uint256 vestingTimePassed = (block.timestamp - initialTimestamp);
+        uint256 amountToSend = _amountToSend(investor);
 
-        if(initialTimestamp + VESTING_TIME > block.timestamp) {
-            if(investor.allocationType == AllocationType.Seed)
-                //avaiableBalance =  (amount * 10%) + (amount * 90% / 100%) * vestingTimePassed / (VESTING_TIME / 100%)
-                avaiableBalance = investor.amount / 10 + (9 * investor.amount * vestingTimePassed) / 10 / VESTING_TIME; 
-            else if (investor.allocationType == AllocationType.Private)
-                //avaiableBalance =  (amount * 15%) + (amount * 85% / 100%) * vestingTimePassed / (VESTING_TIME / 100%)
-                avaiableBalance = investor.amount * 3 / 20 + (17 * investor.amount * vestingTimePassed) / 20 / VESTING_TIME;
-        } else
-            avaiableBalance = investor.amount;
-
-        uint256 amountToSend = avaiableBalance - investor.withdrawnAmount; 
         require(amountToSend > 0, "Vesting: no tokens available");
-        require(amountToSend >= totalSupply, "Vesting: none tokens in the contact");
+        require(amountToSend <= totalSupply, "Vesting: none tokens in the contact");
 
-        investorsBalances[msg.sender].withdrawnAmount += amountToSend;     
+        investor.withdrawnAmount += amountToSend;     
         totalSupply -= amountToSend;
         IERC20(token).safeTransfer(msg.sender, amountToSend);
-        emit WithdrawTokens(msg.sender, avaiableBalance);
+        emit WithdrawTokens(msg.sender, amountToSend);
     }
 
     /**
@@ -128,5 +108,36 @@ contract VestingContract is IVestingContract, Ownable {
         totalSupply = 0;
         IERC20(token).safeTransfer(msg.sender, amount);
         emit WithdrawTokens(msg.sender, amount);
+    }
+
+    function _addInvestor(address _investor, uint256 _amount, AllocationType _allocationType) internal {
+        require(investorsInfo[_investor].amount == 0, "Vesting: this investor already exist");
+
+        uint256 initialAmount;
+        if(_allocationType == AllocationType.Seed)
+            initialAmount = _amount * 10 / 100;
+        else 
+            initialAmount = _amount * 15 / 100;
+
+        investorsInfo[_investor] = Investor(_amount, initialAmount, 0, _allocationType);
+        emit AddInvestor(_investor, _amount, _allocationType);
+    }
+
+    function _amountToSend(Investor storage investor) internal view returns(uint256) {
+        uint256 avaiableAmount;  
+        uint256 vestingTimePassed = (block.timestamp - initialTimestamp);
+
+        if(initialTimestamp + VESTING_TIME > block.timestamp) {
+            if(investor.allocationType == AllocationType.Seed)
+                //avaiableBalance =  (amount * 10%) + (amount * 90% / 100%) * vestingTimePassed / (VESTING_TIME / 100%)
+                avaiableAmount = investor.initialAmount + (9 * investor.amount * vestingTimePassed) / 10 / VESTING_TIME; 
+            else if (investor.allocationType == AllocationType.Private)
+                //avaiableBalance =  (amount * 15%) + (amount * 85% / 100%) * vestingTimePassed / (VESTING_TIME / 100%)
+                avaiableAmount = investor.initialAmount + (17 * investor.amount * vestingTimePassed) / 20 / VESTING_TIME;
+        } else
+            avaiableAmount = investor.amount;
+
+        uint256 amountToSend = avaiableAmount - investor.withdrawnAmount;
+        return amountToSend; 
     }
 }
