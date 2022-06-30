@@ -10,10 +10,6 @@ import "./TevaToken.sol";
 contract VestingContract is IVestingContract, Ownable {
     using SafeERC20 for IERC20;  
 
-    event SetInitialTimestamp(uint256 initialTimestamp);
-    event AddInvestor(address indexed investor, uint256 amount, AllocationType allocationType);
-    event WithdrawTokens(address indexed investor, uint256 amount);
-
     struct Investor {
         uint256 amount;    
         uint256 withdrawnAmount;
@@ -23,12 +19,13 @@ contract VestingContract is IVestingContract, Ownable {
     uint256 private constant VESTING_TIME = 600 minutes;
     uint256 private constant CLIFF_TIME = 10 minutes;
 
+    mapping(address => Investor) public investorsBalances;
+    
     uint256 public initialTimestamp;
     uint256 public totalSupply;
     address public token;
     bool public timestampInitialized;
-    mapping(address => Investor) public investorsBalances;
-
+    
 
     constructor(address _token) {
         require(_token != address(0), "Vesting: token address is zero");
@@ -78,12 +75,8 @@ contract VestingContract is IVestingContract, Ownable {
         } else
             avaiableBalance = investor.amount;
 
-
-
-        
-
         uint256 amountToSend = avaiableBalance - investor.withdrawnAmount; 
-        //require(amountToSend > 0, "Vesting: you are not alowed");
+        require(amountToSend > 0, "Vesting: no tokens available");
 
         investorsBalances[msg.sender].withdrawnAmount += amountToSend;     
         totalSupply -= amountToSend;

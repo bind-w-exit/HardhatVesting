@@ -123,8 +123,26 @@ describe("Vesting Contract", function () {
             BigNumber.from(0)
           );
 
+          let receipt2 = await vestingContract.addInvestors([user2.address, user3.address], [AMOUNT, AMOUNT], 1);
+          await expect(receipt2).to.emit(
+            vestingContract,
+            "AddInvestor"
+          ).withArgs(
+            user2.address,
+            AMOUNT,
+            BigNumber.from(1)
+          );
+          await expect(receipt2).to.emit(
+            vestingContract,
+            "AddInvestor"
+          ).withArgs(
+            user3.address,
+            AMOUNT,
+            BigNumber.from(1)
+          );
+
           let totalSupply = await vestingContract.totalSupply();
-          totalSupply.should.be.equal(AMOUNT);
+          totalSupply.should.be.equal(BigNumber.from(Number(AMOUNT) * 3));
       });
 
       it("shouldn't add investors from the non-current owner", async () => {
@@ -167,7 +185,7 @@ describe("Vesting Contract", function () {
       });
 
       //withdrawTokens
-      it("should withdraw tokens to investor", async () => {
+      it("should withdraw tokens to seed investor", async () => {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.setInitialTimestamp(initialTimestamp);
@@ -178,6 +196,30 @@ describe("Vesting Contract", function () {
         let timestamp = await getCurrentTimestamp(receipt.blockNumber);
         let vestingTimePassed = timestamp - initialTimestamp;
         let amount = Math.floor(Number(AMOUNT) / 10) + Math.floor(Math.floor((9 * Number(AMOUNT) * vestingTimePassed) / 10) / VESTING_TIME); 
+        console.log(amount);
+        await expect(receipt).to.emit(
+          vestingContract,
+          "WithdrawTokens"
+        ).withArgs(
+          user1.address,
+          BigNumber.from(amount)
+        );
+
+        let totalSupply = await vestingContract.totalSupply();
+        totalSupply.should.be.equal(BigNumber.from(Number(AMOUNT) - amount));
+      });
+
+      it("should withdraw tokens to private investor", async () => {
+        await vestingContract.addInvestors([user1.address], [AMOUNT], 1);
+        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
+        await vestingContract.setInitialTimestamp(initialTimestamp);
+        await time.increase(CLIFF_TIME + 10);
+
+        let receipt = await vestingContract.connect(user1).withdrawTokens();
+
+        let timestamp = await getCurrentTimestamp(receipt.blockNumber);
+        let vestingTimePassed = timestamp - initialTimestamp;
+        let amount = Math.floor(Number(AMOUNT) * 3 / 20) + Math.floor(Math.floor((17 * Number(AMOUNT) * vestingTimePassed) / 20) / VESTING_TIME);
 
         await expect(receipt).to.emit(
           vestingContract,
@@ -189,6 +231,25 @@ describe("Vesting Contract", function () {
 
         let totalSupply = await vestingContract.totalSupply();
         totalSupply.should.be.equal(BigNumber.from(Number(AMOUNT) - amount));
+      });
+
+      it("should withdraw all tokens to investor after vesting", async () => {
+        await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
+        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
+        await vestingContract.setInitialTimestamp(initialTimestamp);
+        await time.increase(VESTING_TIME + 10);
+
+        let receipt = await vestingContract.connect(user1).withdrawTokens();
+        await expect(receipt).to.emit(
+          vestingContract,
+          "WithdrawTokens"
+        ).withArgs(
+          user1.address,
+          AMOUNT
+        );
+
+        let totalSupply = await vestingContract.totalSupply();
+        totalSupply.should.be.equal(BigNumber.from(0));
       });
 
       it("shouldn't withdraw tokens to investor if timestamp not initialized", async () => {
@@ -220,10 +281,21 @@ describe("Vesting Contract", function () {
         );
       });
 
+      it("shouldn't withdraw tokens to investor if no tokens available", async () => {     
+        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
+        await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
+        await vestingContract.setInitialTimestamp(initialTimestamp);
+        await time.increase(CLIFF_TIME + 10);
+        await vestingContract.connect(user1).withdrawTokens();
+
+        await expectRevert(
+          vestingContract.connect(user1).withdrawTokens(),
+          "Vesting: no tokens available"
+        );
+      });
 
     });
   });
-
 
   async function getCurrentTimestamp(blockNumber: number): Promise<any> {
     return (await ethers.provider.getBlock(blockNumber)).timestamp;
