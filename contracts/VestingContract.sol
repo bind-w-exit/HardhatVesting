@@ -39,7 +39,7 @@ contract VestingContract is IVestingContract, Ownable {
      *
      * @param _initialTimestamp vesting start time
      */
-    function setInitialTimestamp(uint256 _initialTimestamp) external onlyOwner {
+    function setInitialTimestamp(uint256 _initialTimestamp) external override onlyOwner {
         require(!timestampInitialized, "Vesting: timestamp has already been initialized");
         require(_initialTimestamp > block.timestamp, "Vesting: initial timestamp is less than the current block timestamp");
         initialTimestamp = _initialTimestamp;
@@ -57,7 +57,7 @@ contract VestingContract is IVestingContract, Ownable {
      * @param _amounts Array of token amounts that will be added to the addresses of investors.
      * @param _allocationType Seed or Private allocation type
      */
-    function addInvestors(address[] calldata _investors, uint256[] calldata _amounts, AllocationType _allocationType) external onlyOwner {
+    function addInvestors(address[] calldata _investors, uint256[] calldata _amounts, AllocationType _allocationType) external override onlyOwner {
         require(!timestampInitialized, "Vesting: vesting has already been started");
         require(_investors.length == _amounts.length, "Vesting: the number of items in the arrays does't match");
         
@@ -77,7 +77,7 @@ contract VestingContract is IVestingContract, Ownable {
 
      * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
      */
-    function withdrawTokens() external {
+    function withdrawTokens() external override{
         Investor storage investor = investorsInfo[msg.sender];
 
         require(timestampInitialized, "Vesting: not initialized");
@@ -127,7 +127,9 @@ contract VestingContract is IVestingContract, Ownable {
         uint256 avaiableAmount;  
         uint256 vestingTimePassed = (block.timestamp - initialTimestamp);
 
-        if(initialTimestamp + VESTING_TIME > block.timestamp) {
+        if (initialTimestamp + CLIFF_TIME > block.timestamp) {
+            avaiableAmount = investor.initialAmount;
+        } else if (initialTimestamp + VESTING_TIME > block.timestamp) {
             if(investor.allocationType == AllocationType.Seed)
                 //avaiableBalance =  (amount * 10%) + (amount * 90% / 100%) * vestingTimePassed / (VESTING_TIME / 100%)
                 avaiableAmount = investor.initialAmount + (9 * investor.amount * vestingTimePassed) / 10 / VESTING_TIME; 
