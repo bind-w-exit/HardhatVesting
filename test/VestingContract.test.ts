@@ -196,7 +196,6 @@ describe("Vesting Contract", function () {
         let timestamp = await getCurrentTimestamp(receipt.blockNumber);
         let vestingTimePassed = timestamp - initialTimestamp;
         let amount = Math.floor(Number(AMOUNT) / 10) + Math.floor(Math.floor((9 * Number(AMOUNT) * vestingTimePassed) / 10) / VESTING_TIME); 
-        console.log(amount);
         await expect(receipt).to.emit(
           vestingContract,
           "WithdrawTokens"
