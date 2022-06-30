@@ -13,9 +13,34 @@ interface IVestingContract {
     event WithdrawTokens(address indexed investor, uint256 amount);
 
 
-    function setInitialTimestamp(uint256 initialTimestamp) external;
+    /**
+     * @dev Initializes vesting start time.
+     * Can only be called by the current owner.
+     * Can be called only once.
+     *
+     * Emits an {SetInitialTimestamp} an event that indicates the initialization of the vesting start time.
+     *
+     * @param _initialTimestamp vesting start time
+     */
+    function setInitialTimestamp(uint256 _initialTimestamp) external;
 
-    function addInvestors(address[] calldata investors, uint256[] calldata amounts, AllocationType allocationType) external;
+    /**
+     * @dev Adds investors with an amount for each.
+     * Can only be called by the current owner.
+     *
+     * Emits an {AddInvestors} an event indicating the addition of an investor with an amount of tokens.
+     *
+     * @param _investors Array of addresses of investors.
+     * @param _amounts Array of token amounts that will be added to the addresses of investors.
+     * @param _allocationType Seed or Private allocation type
+     */
+    function addInvestors(address[] calldata _investors, uint256[] calldata _amounts, AllocationType _allocationType) external;
 
+    /**
+     * @dev Transfers the amount of reward tokens back to the owner.
+     * Without parameters.
+
+     * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
+     */
     function withdrawTokens() external;
 }

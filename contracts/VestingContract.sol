@@ -26,13 +26,26 @@ contract VestingContract is IVestingContract, Ownable {
     address public token;
     bool public timestampInitialized;
     
-
+    /**
+     * @dev Initializes the accepted token as a reward token.
+     *
+     * @param _token ERC-20 token address.
+     */
     constructor(address _token) {
         require(_token != address(0), "Vesting: token address is zero");
         token = _token;
     }
 
-    function setInitialTimestamp(uint256 _initialTimestamp) onlyOwner external {
+    /**
+     * @dev Initializes vesting start time.
+     * Can only be called by the current owner.
+     * Can be called only once.
+     *
+     * Emits an {SetInitialTimestamp} an event that indicates the initialization of the vesting start time.
+     *
+     * @param _initialTimestamp vesting start time
+     */
+    function setInitialTimestamp(uint256 _initialTimestamp) external onlyOwner {
         require(!timestampInitialized, "Vesting: timestamp has already been initialized");
         require(_initialTimestamp > block.timestamp, "Vesting: initial timestamp is less than the current block timestamp");
         initialTimestamp = _initialTimestamp;
@@ -40,7 +53,17 @@ contract VestingContract is IVestingContract, Ownable {
         emit SetInitialTimestamp(_initialTimestamp);
     }
 
-    function addInvestors(address[] calldata _investors, uint256[] calldata _amounts, AllocationType _allocationType) onlyOwner external {
+    /**
+     * @dev Adds investors with an amount for each.
+     * Can only be called by the current owner.
+     *
+     * Emits an {AddInvestors} an event indicating the addition of an investor with an amount of tokens.
+     *
+     * @param _investors Array of addresses of investors.
+     * @param _amounts Array of token amounts that will be added to the addresses of investors.
+     * @param _allocationType Seed or Private allocation type
+     */
+    function addInvestors(address[] calldata _investors, uint256[] calldata _amounts, AllocationType _allocationType) external onlyOwner {
         require(!timestampInitialized, "Vesting: vesting has already been started");
         require(_investors.length == _amounts.length, "Vesting: the number of items in the arrays does't match");
         
@@ -55,6 +78,12 @@ contract VestingContract is IVestingContract, Ownable {
         TevaToken(token).mint(address(this), amountsSum);
     }
 
+    /**
+     * @dev Transfers the amount of reward tokens back to the owner.
+     * Without parameters.
+
+     * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
+     */
     function withdrawTokens() external {
         Investor memory investor = investorsBalances[msg.sender];
 
@@ -77,10 +106,27 @@ contract VestingContract is IVestingContract, Ownable {
 
         uint256 amountToSend = avaiableBalance - investor.withdrawnAmount; 
         require(amountToSend > 0, "Vesting: no tokens available");
+        require(amountToSend >= totalSupply, "Vesting: none tokens in the contact");
 
         investorsBalances[msg.sender].withdrawnAmount += amountToSend;     
         totalSupply -= amountToSend;
         IERC20(token).safeTransfer(msg.sender, amountToSend);
         emit WithdrawTokens(msg.sender, avaiableBalance);
+    }
+
+    /**
+     * @dev Transfers the amount of reward tokens back to the owner.
+     * Can only be called by the current owner.
+     * Without parameters.
+     *
+     * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
+     */
+    function emergencyWithdraw() external onlyOwner {
+        require(totalSupply > 0, "The transaction amount is zero");
+
+        uint256 amount = totalSupply;
+        totalSupply = 0;
+        IERC20(token).safeTransfer(msg.sender, amount);
+        emit WithdrawTokens(msg.sender, amount);
     }
 }
