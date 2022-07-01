@@ -12,6 +12,8 @@ contract VestingContract is IVestingContract, Ownable {
 
     uint256 private constant VESTING_TIME = 600 minutes;
     uint256 private constant CLIFF_TIME = 10 minutes;
+    uint256 private constant ONE_HUNDRED_PERCENT = 100 ether;
+    uint256 private constant PERCENT_PER_SECOND = ONE_HUNDRED_PERCENT / VESTING_TIME;
 
     mapping(address => Investor) public investorsInfo;
     
@@ -77,10 +79,11 @@ contract VestingContract is IVestingContract, Ownable {
 
      * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
      */
-    function withdrawTokens() external override{
+    function withdrawTokens() external override{      
         Investor storage investor = investorsInfo[msg.sender];
 
         require(timestampInitialized, "Vesting: not initialized");
+        require(block.timestamp >= initialTimestamp, "Vesting: vesting hasn't started");
         require(investor.amount > 0, "Vesting: you are not a investor");
 
         uint256 amountToSend = _amountToSend(investor);
@@ -102,6 +105,7 @@ contract VestingContract is IVestingContract, Ownable {
      * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
      */
     function emergencyWithdraw() external onlyOwner {
+        require(initialTimestamp + VESTING_TIME + CLIFF_TIME < block.timestamp, "Vesting: vesting not over");
         require(totalSupply > 0, "Vesting: transaction amount is zero");
 
         uint256 amount = totalSupply;
@@ -115,7 +119,7 @@ contract VestingContract is IVestingContract, Ownable {
 
         uint256 initialAmount;
         if(_allocationType == AllocationType.Seed)
-            initialAmount = _amount * 10 / 100;
+            initialAmount = _amount / 10;
         else 
             initialAmount = _amount * 15 / 100;
 
@@ -127,17 +131,13 @@ contract VestingContract is IVestingContract, Ownable {
         uint256 avaiableAmount;  
         uint256 vestingTimePassed = (block.timestamp - initialTimestamp);
 
-        if (initialTimestamp + CLIFF_TIME > block.timestamp) {
-            avaiableAmount = investor.initialAmount;
-        } else if (initialTimestamp + VESTING_TIME > block.timestamp) {
-            if(investor.allocationType == AllocationType.Seed)
-                //avaiableBalance =  (amount * 10%) + (amount * 90% / 100%) * vestingTimePassed / (VESTING_TIME / 100%)
-                avaiableAmount = investor.initialAmount + (9 * investor.amount * vestingTimePassed) / 10 / VESTING_TIME; 
-            else if (investor.allocationType == AllocationType.Private)
-                //avaiableBalance =  (amount * 15%) + (amount * 85% / 100%) * vestingTimePassed / (VESTING_TIME / 100%)
-                avaiableAmount = investor.initialAmount + (17 * investor.amount * vestingTimePassed) / 20 / VESTING_TIME;
-        } else
+        if (vestingTimePassed >= VESTING_TIME + CLIFF_TIME) {
             avaiableAmount = investor.amount;
+        } else if (vestingTimePassed >= CLIFF_TIME) {
+            avaiableAmount = investor.initialAmount + PERCENT_PER_SECOND * (vestingTimePassed - CLIFF_TIME) * (investor.amount - investor.initialAmount) / ONE_HUNDRED_PERCENT;
+        } else {
+            avaiableAmount = investor.initialAmount;
+        }    
 
         uint256 amountToSend = avaiableAmount - investor.withdrawnAmount;
         return amountToSend; 
