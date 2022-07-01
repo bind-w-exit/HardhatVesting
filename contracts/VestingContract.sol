@@ -102,7 +102,7 @@ contract VestingContract is IVestingContract, Ownable {
      * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
      */
     function emergencyWithdraw() external onlyOwner {
-        require(totalSupply > 0, "The transaction amount is zero");
+        require(totalSupply > 0, "Vesting: transaction amount is zero");
 
         uint256 amount = totalSupply;
         totalSupply = 0;
@@ -111,7 +111,7 @@ contract VestingContract is IVestingContract, Ownable {
     }
 
     function _addInvestor(address _investor, uint256 _amount, AllocationType _allocationType) internal {
-        require(investorsInfo[_investor].amount == 0, "Vesting: this investor already exist");
+        require(investorsInfo[_investor].amount == 0, "Vesting: investor already exist");
 
         uint256 initialAmount;
         if(_allocationType == AllocationType.Seed)

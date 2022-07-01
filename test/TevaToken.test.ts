@@ -13,6 +13,8 @@ const {
 require("chai")
     .should();
 
+const keccak256 = require("keccak256");
+
 
 describe("Vesting Contract", function () {
     let owner: SignerWithAddress;
@@ -117,6 +119,67 @@ describe("Vesting Contract", function () {
                     "TevaToken: Caller is not a burner"
                 );
             });
+
+            //addMinter
+            it("should add minter", async () => {
+                let receipt = await tevaToken.addMinter(user1.address);
+                await expect(receipt).to.emit(
+                    tevaToken,
+                    "RoleGranted"
+                ).withArgs(
+                    "0x" + keccak256("MINTER_ROLE").toString('hex'),
+                    user1.address,
+                    owner.address
+                );
+
+                let receipt2 = await tevaToken.connect(user1).mint(owner.address, AMOUNT);
+                await expect(receipt2).to.emit(
+                    tevaToken,
+                    "Transfer"
+                ).withArgs(
+                    constants.ZERO_ADDRESS,
+                    owner.address,
+                    AMOUNT
+                );
+            });
+
+            it("shouldn't add minter from contract to a not the current owner", async () => {
+                await expectRevert(
+                    tevaToken.connect(user1).addMinter(user2.address),
+                      "TevaToken: caller is not the owner"
+                  );
+            });
+
+            it("should add burner", async () => {
+                let receipt = await tevaToken.addBurner(user1.address);
+                await expect(receipt).to.emit(
+                    tevaToken,
+                    "RoleGranted"
+                ).withArgs(
+                    "0x" + keccak256("BURNER_ROLE").toString('hex'),
+                    user1.address,
+                    owner.address
+                );
+
+                await tevaToken.mint(user1.address, AMOUNT);
+                let receipt2 = await tevaToken.connect(user1).burn(AMOUNT);
+                await expect(receipt2).to.emit(
+                    tevaToken,
+                    "Transfer"
+                ).withArgs(
+                    user1.address,
+                    constants.ZERO_ADDRESS,
+                    AMOUNT
+                );
+            });
+
+            it("shouldn't add burner from contract to a not the current owner", async () => {
+                await expectRevert(
+                    tevaToken.connect(user1).addBurner(user2.address),
+                      "TevaToken: caller is not the owner"
+                  );
+            });
+
 
             //transfer
             it("should transfer tokens correctly", async () => {

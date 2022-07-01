@@ -75,7 +75,6 @@ contract TevaToken is ERC20, AccessControl {
         return true;
     }
 
-
     function owner() public view returns (address) {
         return _owner;
     }

@@ -176,6 +176,15 @@ describe("Vesting Contract", function () {
 
       });
 
+      it("shouldn't add investors if investor already exist", async () => {
+        await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
+
+        await expectRevert(
+          vestingContract.addInvestors([user1.address], [AMOUNT], 0),
+          "Vesting: investor already exist"
+        );
+      });
+
     });
 
     describe("Withdrawer Test Cases 💳", function () {
@@ -189,7 +198,7 @@ describe("Vesting Contract", function () {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increase(CLIFF_TIME + 10);
+        await time.increaseTo(initialTimestamp + CLIFF_TIME);
 
         let receipt = await vestingContract.connect(user1).withdrawTokens();
 
@@ -212,7 +221,7 @@ describe("Vesting Contract", function () {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 1);
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increase(CLIFF_TIME + 10);
+        await time.increaseTo(initialTimestamp + CLIFF_TIME);
 
         let receipt = await vestingContract.connect(user1).withdrawTokens();
 
@@ -232,11 +241,49 @@ describe("Vesting Contract", function () {
         totalSupply.should.be.equal(BigNumber.from(Number(AMOUNT) - amount));
       });
 
+      it("should withdraw tokens to seed investor before cliff ended", async () => {
+        await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
+        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
+        await vestingContract.setInitialTimestamp(initialTimestamp);
+        await time.increaseTo(initialTimestamp);
+
+        let receipt = await vestingContract.connect(user1).withdrawTokens();
+        await expect(receipt).to.emit(
+          vestingContract,
+          "WithdrawTokens"
+        ).withArgs(
+          user1.address,
+          BigNumber.from(Math.floor(Number(AMOUNT) * 0.1))
+        );
+
+        let totalSupply = await vestingContract.totalSupply();
+        totalSupply.should.be.equal(BigNumber.from(Number(AMOUNT) * 0.9));
+      });
+
+      it("should withdraw tokens to private investor before cliff ended", async () => {
+        await vestingContract.addInvestors([user1.address], [AMOUNT], 1);
+        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
+        await vestingContract.setInitialTimestamp(initialTimestamp);
+        await time.increaseTo(initialTimestamp);
+
+        let receipt = await vestingContract.connect(user1).withdrawTokens();
+        await expect(receipt).to.emit(
+          vestingContract,
+          "WithdrawTokens"
+        ).withArgs(
+          user1.address,
+          BigNumber.from(Math.floor(Number(AMOUNT) * 0.15))
+        );
+
+        let totalSupply = await vestingContract.totalSupply();
+        totalSupply.should.be.equal(BigNumber.from(Number(AMOUNT) * 0.85));
+      });
+
       it("should withdraw all tokens to investor after vesting", async () => {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increase(VESTING_TIME + 10);
+        await time.increaseTo(initialTimestamp + VESTING_TIME);
 
         let receipt = await vestingContract.connect(user1).withdrawTokens();
         await expect(receipt).to.emit(
@@ -261,7 +308,7 @@ describe("Vesting Contract", function () {
       it("shouldn't withdraw tokens to investor if you are not a investor", async () => {
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increase(CLIFF_TIME + 10);
+        await time.increaseTo(initialTimestamp + CLIFF_TIME);
 
         await expectRevert(
           vestingContract.connect(user1).withdrawTokens(),
@@ -273,12 +320,57 @@ describe("Vesting Contract", function () {
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
         await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increase(CLIFF_TIME + 10);
+        await time.increaseTo(initialTimestamp + CLIFF_TIME);
         await vestingContract.connect(user1).withdrawTokens();
 
         await expectRevert(
           vestingContract.connect(user1).withdrawTokens(),
           "Vesting: no tokens available"
+        );
+      });
+
+
+      //emergencyWithdraw
+      it("should transfer tokens back to the owner", async () => {
+        await vestingContract.addInvestors([user1.address], [AMOUNT], 1);
+
+        let receipt = await vestingContract.emergencyWithdraw();
+        await expect(receipt).to.emit(
+          vestingContract,
+          "WithdrawTokens"
+        ).withArgs(
+          owner.address,
+          AMOUNT
+        );
+
+        let totalSupply = await vestingContract.totalSupply();
+        totalSupply.should.be.equal(BigNumber.from(0));
+      });
+
+      it("shouldn't transfer tokens from contract to a not the current owner", async () => {
+        await expectRevert(
+          vestingContract.connect(user1).emergencyWithdraw(),
+            "Ownable: caller is not the owner"
+        );
+      });
+
+      it("shouldn't transfer tokens from contract if transaction amount is zero", async () => {
+        await expectRevert(
+          vestingContract.emergencyWithdraw(),
+            "Vesting: transaction amount is zero"
+        );
+      });
+
+      it("shouldn't withdraw tokens to investor if none tokens in the contact", async () => {
+        await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
+        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
+        await vestingContract.setInitialTimestamp(initialTimestamp);
+        await time.increaseTo(initialTimestamp);
+        await vestingContract.emergencyWithdraw()
+
+        await expectRevert(
+          vestingContract.connect(user1).withdrawTokens(),
+            "Vesting: none tokens in the contact"
         );
       });
 
