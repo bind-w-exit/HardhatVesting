@@ -27,6 +27,10 @@ contract TevaToken is ERC20, AccessControl {
         _;
     }
 
+    /**
+     * @dev Initializes the roles and grants the owner those roles.
+     * Without parameters.
+     */
     constructor() ERC20("Teva token", "TEVA") {
         _owner = msg.sender;
         _setupRole(OWNER_ROLE, msg.sender);
@@ -35,10 +39,23 @@ contract TevaToken is ERC20, AccessControl {
         _setRoleAdmin(MINTER_ROLE, OWNER_ROLE);
         _setRoleAdmin(BURNER_ROLE, OWNER_ROLE);
     }
+
+    /**
+     * @dev Adds the minter role to the address.
+     * Can only be called by the current owner.
+     *
+     * @param minter Minter address.
+     */
     function addMinter(address minter) external onlyOwner {
         grantRole(MINTER_ROLE, minter);
     }
 
+    /**
+     * @dev Adds the burner role to the address.
+     * Can only be called by the current owner.
+     *
+     * @param burner Burner address.
+     */
     function addBurner(address burner) external onlyOwner {
         grantRole(BURNER_ROLE, burner);
     }
@@ -47,34 +64,29 @@ contract TevaToken is ERC20, AccessControl {
      * @dev Creates `amount` tokens and assigns them to `account`, increasing
      * the total supply.
      *
-     * Emits a {Transfer} event with `from` set to the zero address.
-     *
-     * Requirements:
-     *
-     * - `account` cannot be the zero address.
+     * @param account Recipient's account.
+     * @param amount Amount to mint.
      */
     function mint(address account, uint256 amount) external onlyMinter returns (bool) {    
         _mint(account, amount);
         return true;
     }
 
-    
      /**
      * @dev Destroys amount tokens from account, reducing the
      * total supply.
-     *
-     * Emits a {Transfer} event with `to` set to the zero address.
-     *
-     * Requirements:
-     *
-     * - `account` cannot be the zero address.
-     * - `account` must have at least `amount` tokens.
+     * 
+     * @param amount Amount to burn.
      */
     function burn(uint256 amount) external onlyBurner returns (bool) { 
         _burn(msg.sender, amount);
         return true;
     }
 
+    /**
+     * @dev Returns owner's address.
+     * Without parameters.
+     */
     function owner() public view returns (address) {
         return _owner;
     }

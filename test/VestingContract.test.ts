@@ -1,11 +1,9 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { expect } from "chai";
 import { Contract, ContractFactory, BigNumber } from "ethers";
-import { ethers, network } from "hardhat";
+import { ethers } from "hardhat";
 
 const {
-  BN,
-  expectEvent,
   constants,
   expectRevert,
   snapshot,
@@ -200,12 +198,14 @@ describe("Vesting Contract", function () {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increaseTo(initialTimestamp + (VESTING_TIME - CLIFF_TIME) / 2 + CLIFF_TIME);
+        await time.increaseTo(initialTimestamp + VESTING_TIME / 2 + CLIFF_TIME);
 
         let receipt = await vestingContract.connect(user1).withdrawTokens();
+
         let timestamp = await getCurrentTimestamp(receipt.blockNumber);
         let vestingTimePassed = timestamp - initialTimestamp;
         let amount = AMOUNT.div(10).add(PERCENT_PER_SECOND.mul(vestingTimePassed - CLIFF_TIME).mul(AMOUNT.sub(AMOUNT.div(10))).div(ONE_HUNDRED_PERCENT));
+        
         await expect(receipt).to.emit(
           vestingContract,
           "WithdrawTokens"
@@ -222,7 +222,7 @@ describe("Vesting Contract", function () {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 1);
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increaseTo(initialTimestamp + (VESTING_TIME - CLIFF_TIME) / 2 + CLIFF_TIME);
+        await time.increaseTo(initialTimestamp + VESTING_TIME / 2 + CLIFF_TIME);
 
         let receipt = await vestingContract.connect(user1).withdrawTokens();
 
@@ -363,7 +363,7 @@ describe("Vesting Contract", function () {
         );
       });
 
-      it("shouldn't transfer tokens from contract if vesting not over", async () => {
+      it("shouldn't transfer tokens back to the owner if vesting not over", async () => {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.setInitialTimestamp(initialTimestamp);
@@ -386,7 +386,7 @@ describe("Vesting Contract", function () {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
         await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increaseTo(initialTimestamp + VESTING_TIME);
+        await time.increaseTo(initialTimestamp + VESTING_TIME + CLIFF_TIME);
         await vestingContract.emergencyWithdraw()
 
         await expectRevert(

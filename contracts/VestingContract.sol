@@ -53,8 +53,6 @@ contract VestingContract is IVestingContract, Ownable {
      * @dev Adds investors with an amount for each.
      * Can only be called by the current owner.
      *
-     * Emits an {AddInvestors} an event indicating the addition of an investor with an amount of tokens.
-     *
      * @param _investors Array of addresses of investors.
      * @param _amounts Array of token amounts that will be added to the addresses of investors.
      * @param _allocationType Seed or Private allocation type
@@ -105,7 +103,9 @@ contract VestingContract is IVestingContract, Ownable {
      * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
      */
     function emergencyWithdraw() external onlyOwner {
-        require(initialTimestamp + VESTING_TIME + CLIFF_TIME < block.timestamp, "Vesting: vesting not over");
+        if (timestampInitialized) {
+            require(initialTimestamp + VESTING_TIME + CLIFF_TIME < block.timestamp, "Vesting: vesting not over");
+        }
         require(totalSupply > 0, "Vesting: transaction amount is zero");
 
         uint256 amount = totalSupply;
@@ -114,6 +114,15 @@ contract VestingContract is IVestingContract, Ownable {
         emit WithdrawTokens(msg.sender, amount);
     }
 
+    /**
+     * @dev Adds investor with an amount.
+     *
+     * Emits an {AddInvestors} an event indicating the addition of an investor with an amount of tokens.
+     *
+     * @param _investor Investor address.
+     * @param _amount Amount of the investor.
+     * @param _allocationType Seed or Private allocation type
+     */
     function _addInvestor(address _investor, uint256 _amount, AllocationType _allocationType) internal {
         require(investorsInfo[_investor].amount == 0, "Vesting: investor already exist");
 
@@ -127,19 +136,24 @@ contract VestingContract is IVestingContract, Ownable {
         emit AddInvestor(_investor, _amount, _allocationType);
     }
 
-    function _amountToSend(Investor storage investor) internal view returns(uint256) {
+    /**
+     * @dev Calculates the amount to send.
+     *
+     * @param _investor Investor struct.
+     */
+    function _amountToSend(Investor storage _investor) internal view returns(uint256) {
         uint256 avaiableAmount;  
         uint256 vestingTimePassed = (block.timestamp - initialTimestamp);
 
         if (vestingTimePassed >= VESTING_TIME + CLIFF_TIME) {
-            avaiableAmount = investor.amount;
+            avaiableAmount = _investor.amount;
         } else if (vestingTimePassed >= CLIFF_TIME) {
-            avaiableAmount = investor.initialAmount + PERCENT_PER_SECOND * (vestingTimePassed - CLIFF_TIME) * (investor.amount - investor.initialAmount) / ONE_HUNDRED_PERCENT;
+            avaiableAmount = _investor.initialAmount + PERCENT_PER_SECOND * (vestingTimePassed - CLIFF_TIME) * (_investor.amount - _investor.initialAmount) / ONE_HUNDRED_PERCENT;
         } else {
-            avaiableAmount = investor.initialAmount;
+            avaiableAmount = _investor.initialAmount;
         }    
 
-        uint256 amountToSend = avaiableAmount - investor.withdrawnAmount;
+        uint256 amountToSend = avaiableAmount - _investor.withdrawnAmount;
         return amountToSend; 
     }
 }
