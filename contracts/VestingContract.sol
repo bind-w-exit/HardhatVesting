@@ -103,9 +103,8 @@ contract VestingContract is IVestingContract, Ownable {
      * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
      */
     function emergencyWithdraw() external onlyOwner {
-        if (timestampInitialized) {
-            require(initialTimestamp + VESTING_TIME + CLIFF_TIME < block.timestamp, "Vesting: vesting not over");
-        }
+        require(timestampInitialized, "Vesting: not initialized");
+        require(initialTimestamp + VESTING_TIME + CLIFF_TIME < block.timestamp, "Vesting: vesting not over");
         require(totalSupply > 0, "Vesting: transaction amount is zero");
 
         uint256 amount = totalSupply;

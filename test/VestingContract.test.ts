@@ -342,6 +342,9 @@ describe("Vesting Contract", function () {
       //emergencyWithdraw
       it("should transfer tokens back to the owner", async () => {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 1);
+        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
+        await vestingContract.setInitialTimestamp(initialTimestamp);
+        await time.increaseTo(initialTimestamp + VESTING_TIME + CLIFF_TIME);
 
         let receipt = await vestingContract.emergencyWithdraw();
         await expect(receipt).to.emit(
@@ -363,6 +366,13 @@ describe("Vesting Contract", function () {
         );
       });
 
+      it("shouldn't transfer tokens from contract if vesting not initialized", async () => {
+        await expectRevert(
+          vestingContract.emergencyWithdraw(),
+            "Vesting: not initialized"
+        );
+      });
+
       it("shouldn't transfer tokens back to the owner if vesting not over", async () => {
         await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
         let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
@@ -376,6 +386,9 @@ describe("Vesting Contract", function () {
       });
 
       it("shouldn't transfer tokens from contract if transaction amount is zero", async () => {
+        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
+        await vestingContract.setInitialTimestamp(initialTimestamp);
+        await time.increaseTo(initialTimestamp + VESTING_TIME + CLIFF_TIME);
         await expectRevert(
           vestingContract.emergencyWithdraw(),
             "Vesting: transaction amount is zero"
