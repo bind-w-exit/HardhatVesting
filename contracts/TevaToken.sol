@@ -12,7 +12,6 @@ contract TevaToken is ERC20, AccessControl {
 
 
     modifier onlyOwner() {
-        //require(hasRole(OWNER_ROLE, msg.sender), "TevaToken: caller is not the owner");
         require(_owner == msg.sender, "TevaToken: caller is not the owner");
         _;
     }

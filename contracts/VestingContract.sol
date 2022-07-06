@@ -105,12 +105,14 @@ contract VestingContract is IVestingContract, Ownable {
     function emergencyWithdraw() external onlyOwner {
         require(timestampInitialized, "Vesting: not initialized");
         require(initialTimestamp + VESTING_TIME + CLIFF_TIME < block.timestamp, "Vesting: vesting not over");
-        require(totalSupply > 0, "Vesting: transaction amount is zero");
 
-        uint256 amount = totalSupply;
-        totalSupply = 0;
-        IERC20(token).safeTransfer(msg.sender, amount);
-        emit WithdrawTokens(msg.sender, amount);
+        uint256 totalTokens = IERC20(token).balanceOf(address(this));
+        uint256 amountToWithdraw = totalTokens - totalSupply;
+
+        require(amountToWithdraw > 0, "Vesting: transaction amount is zero");
+
+        IERC20(token).safeTransfer(msg.sender, amountToWithdraw);
+        emit EmergencyWithdraw(msg.sender, amountToWithdraw);
     }
 
     /**
@@ -140,14 +142,16 @@ contract VestingContract is IVestingContract, Ownable {
      *
      * @param _investor Investor struct.
      */
-    function _amountToSend(Investor storage _investor) internal view returns(uint256) {
+    function _amountToSend(Investor memory _investor) internal view returns(uint256) {
         uint256 avaiableAmount;  
         uint256 vestingTimePassed = (block.timestamp - initialTimestamp);
 
         if (vestingTimePassed >= VESTING_TIME + CLIFF_TIME) {
             avaiableAmount = _investor.amount;
         } else if (vestingTimePassed >= CLIFF_TIME) {
-            avaiableAmount = _investor.initialAmount + PERCENT_PER_SECOND * (vestingTimePassed - CLIFF_TIME) * (_investor.amount - _investor.initialAmount) / ONE_HUNDRED_PERCENT;
+            uint256 totalVestingAmount = _investor.amount - _investor.initialAmount;
+            uint256 unlockedPercentage = PERCENT_PER_SECOND * (vestingTimePassed - CLIFF_TIME);
+            avaiableAmount = _investor.initialAmount + ((unlockedPercentage * totalVestingAmount) / ONE_HUNDRED_PERCENT);
         } else {
             avaiableAmount = _investor.initialAmount;
         }    

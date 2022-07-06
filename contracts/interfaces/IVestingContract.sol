@@ -18,6 +18,7 @@ interface IVestingContract {
     event SetInitialTimestamp(uint256 initialTimestamp);
     event AddInvestor(address indexed investor, uint256 amount, AllocationType allocationType);
     event WithdrawTokens(address indexed investor, uint256 amount);
+    event EmergencyWithdraw(address indexed investor, uint256 amount);
 
 
     /**

@@ -346,17 +346,19 @@ describe("Vesting Contract", function () {
         await vestingContract.setInitialTimestamp(initialTimestamp);
         await time.increaseTo(initialTimestamp + VESTING_TIME + CLIFF_TIME);
 
+        await tevaToken.mint(vestingContract.address, AMOUNT);
+
         let receipt = await vestingContract.emergencyWithdraw();
         await expect(receipt).to.emit(
           vestingContract,
-          "WithdrawTokens"
+          "EmergencyWithdraw"
         ).withArgs(
           owner.address,
           AMOUNT
         );
 
         let totalSupply = await vestingContract.totalSupply();
-        totalSupply.should.be.equal(BigNumber.from(0));
+        totalSupply.should.be.equal(BigNumber.from(AMOUNT)); // investor amount should be save
       });
 
       it("shouldn't transfer tokens from contract to a not the current owner", async () => {
@@ -394,20 +396,7 @@ describe("Vesting Contract", function () {
             "Vesting: transaction amount is zero"
         );
       });
-
-      it("shouldn't withdraw tokens to investor if none tokens in the contact", async () => {
-        await vestingContract.addInvestors([user1.address], [AMOUNT], 0);
-        let initialTimestamp = Math.floor(Date.now() / 1000) + 10;
-        await vestingContract.setInitialTimestamp(initialTimestamp);
-        await time.increaseTo(initialTimestamp + VESTING_TIME + CLIFF_TIME);
-        await vestingContract.emergencyWithdraw()
-
-        await expectRevert(
-          vestingContract.connect(user1).withdrawTokens(),
-            "Vesting: none tokens in the contact"
-        );
-      });
-
+      
     });
   });
 
