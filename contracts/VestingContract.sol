@@ -10,10 +10,10 @@ import "./TevaToken.sol";
 contract VestingContract is IVestingContract, Ownable {
     using SafeERC20 for IERC20;  
 
-    uint256 private constant VESTING_TIME = 600 minutes;
-    uint256 private constant CLIFF_TIME = 10 minutes;
-    uint256 private constant ONE_HUNDRED_PERCENT = 100 ether;
-    uint256 private constant PERCENT_PER_SECOND = ONE_HUNDRED_PERCENT / VESTING_TIME;
+    uint256 public constant ONE_HUNDRED_PERCENT = 100 ether;
+    uint256 public constant VESTING_TIME = 600 minutes;
+    uint256 public constant CLIFF_TIME = 10 minutes;
+    uint256 public constant PERCENT_PER_SECOND = ONE_HUNDRED_PERCENT / VESTING_TIME;
 
     mapping(address => Investor) public investorsInfo;
     
@@ -77,7 +77,7 @@ contract VestingContract is IVestingContract, Ownable {
 
      * Emits an {WithdrawTokens} event that indicates who and how much withdraw tokens from the contract.
      */
-    function withdrawTokens() external override{      
+    function withdrawTokens() external override {      
         Investor storage investor = investorsInfo[msg.sender];
 
         require(timestampInitialized, "Vesting: not initialized");

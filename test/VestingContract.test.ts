@@ -11,7 +11,7 @@ const {
 } = require("@openzeppelin/test-helpers");
 
 require("chai")
-    .should();
+  .should();
 
 
 describe("Vesting Contract", function () {
